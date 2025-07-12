@@ -7,143 +7,32 @@ import * as XLSX from 'xlsx';
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
-  const [amount, setAmount] = useState(15);
+  const [amount, setAmount] = useState(200);
   const [proxies, setProxies] = useState<Proxy[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
-  const [usageToday, setUsageToday] = useState(0);
-  const [showGenerateAllModal, setShowGenerateAllModal] = useState(false);
   const [availableIPCount, setAvailableIPCount] = useState<number | null>(null);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
-  const [nextGenerationTime, setNextGenerationTime] = useState<Date | null>(null);
+  const [showGenerateAllModal, setShowGenerateAllModal] = useState(false);
 
+  // Redirect admin and manager to admin page
   useEffect(() => {
-    if (user) {
-      fetchTodayUsage();
-      checkCooldownStatus();
+    if (user && (user.role === 'admin' || user.role === 'manager')) {
+      window.location.href = '/admin';
     }
   }, [user]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (cooldownRemaining > 0) {
-      interval = setInterval(() => {
-        setCooldownRemaining(prev => {
-          if (prev <= 1) {
-            setNextGenerationTime(null);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [cooldownRemaining]);
-
-  const checkCooldownStatus = () => {
-    if (!user?.id || !user.next_generation_at) {
-      setCooldownRemaining(0);
-      setNextGenerationTime(null);
-      return;
-    }
-
-    const nextTime = new Date(user.next_generation_at);
-    const now = new Date();
-    const remainingMs = nextTime.getTime() - now.getTime();
-
-    if (remainingMs > 0) {
-      setCooldownRemaining(Math.ceil(remainingMs / 1000));
-      setNextGenerationTime(nextTime);
-    } else {
-      setCooldownRemaining(0);
-      setNextGenerationTime(null);
-    }
-  };
-
-  const formatCooldownTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}ঘ ${minutes}মি ${secs}সে`;
-    } else if (minutes > 0) {
-      return `${minutes}মি ${secs}সে`;
-    } else {
-      return `${secs}সে`;
-    }
-  };
-
-  const updateUserGenerationTime = async () => {
-    if (!user?.id || !user.cooldown_minutes) return;
-
-    // Only start cooldown if user has exhausted their daily limit
-    const newUsageToday = usageToday + proxies.length;
-    const willExhaustLimit = newUsageToday >= user.daily_limit;
-    
-    if (!willExhaustLimit) {
-      // Don't start cooldown if user still has remaining limit
-      return;
-    }
-
-    const now = new Date();
-    const nextGeneration = new Date(now.getTime() + user.cooldown_minutes * 60 * 60 * 1000);
-    
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          last_generation_at: now.toISOString(),
-          next_generation_at: nextGeneration.toISOString()
-        })
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      // Update local user state
-      user.last_generation_at = now.toISOString();
-      user.next_generation_at = nextGeneration.toISOString();
-      checkCooldownStatus();
-    } catch (error) {
-      console.error('Error updating generation time:', error);
-    }
-  };
-
-  const fetchTodayUsage = async () => {
-    if (!user?.id) return;
-
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const { data, error } = await supabase
-        .from('usage_logs')
-        .select('amount')
-        .eq('user_id', user.id)
-        .gte('created_at', today.toISOString());
-
-      if (error) throw error;
-
-      const total = data?.reduce((sum, log) => sum + log.amount, 0) || 0;
-      setUsageToday(total);
-    } catch (error) {
-      console.error('Error fetching usage:', error);
-    }
-  };
+  // Don't render anything for admin/manager users
+  if (user && (user.role === 'admin' || user.role === 'manager')) {
+    return null;
+  }
 
   const validateAmount = (value: number): boolean => {
     if (value < 1) {
       toast.error('Please enter at least 1 IP');
       return false;
     }
-    if (!user) return false;
-    
-    const remaining = user.daily_limit - usageToday;
-    if (value > remaining) {
-      toast.error(`Daily limit exceeded! You can only get ${remaining} more IPs today.`);
+    if (value > 10000) {
+      toast.error('Maximum 10,000 IPs allowed at once');
       return false;
     }
     return true;
@@ -156,13 +45,13 @@ export const Home: React.FC = () => {
     }
   };
 
+  const setPresetAmount = (value: number) => {
+    setAmount(value);
+  };
+
   const generateProxies = async () => {
     if (!user?.id) return;
     if (!validateAmount(amount)) return;
-    if (cooldownRemaining > 0) {
-      toast.error(`আপনি আরো ${formatCooldownTime(cooldownRemaining)} পর IP জেনারেট করতে পারবেন`);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -205,7 +94,7 @@ export const Home: React.FC = () => {
   };
 
   const handleGenerateAllClick = async () => {
-    if (!user?.id || remainingLimit <= 0) return;
+    if (!user?.id) return;
 
     try {
       // Check for available proxies first
@@ -213,7 +102,7 @@ export const Home: React.FC = () => {
         .from('proxies')
         .select('*', { count: 'exact' })
         .eq('is_used', false)
-        .limit(remainingLimit);
+        .limit(10000); // Max limit
 
       if (error) throw error;
 
@@ -227,15 +116,11 @@ export const Home: React.FC = () => {
 
   const handleGenerateAllConfirm = () => {
     setShowGenerateAllModal(false);
-    generateAllRemainingProxies();
+    generateAllAvailableProxies();
   };
 
-  const generateAllRemainingProxies = async () => {
-    if (!user?.id || remainingLimit <= 0) return;
-    if (cooldownRemaining > 0) {
-      toast.error(`আপনি আরো ${formatCooldownTime(cooldownRemaining)} পর IP জেনারেট করতে পারবেন`);
-      return;
-    }
+  const generateAllAvailableProxies = async () => {
+    if (!user?.id) return;
     
     setLoadingAll(true);
     try {
@@ -244,18 +129,12 @@ export const Home: React.FC = () => {
         .from('proxies')
         .select('*')
         .eq('is_used', false)
-        .limit(remainingLimit);
+        .limit(10000); // Max limit
 
       if (error) throw error;
 
       if (!availableProxies || availableProxies.length === 0) {
         toast.error('No IPs available');
-        setLoadingAll(false);
-        return;
-      }
-
-      if (availableProxies.length < remainingLimit) {
-        toast.error(`Not enough IPs available. Only ${availableProxies.length} IPs available.`);
         setLoadingAll(false);
         return;
       }
@@ -270,12 +149,6 @@ export const Home: React.FC = () => {
 
       if (!updatedProxies || updatedProxies.length === 0) {
         toast.error('Other users are using these IPs. Please try again.');
-        setLoadingAll(false);
-        return;
-      }
-
-      if (updatedProxies.length < remainingLimit) {
-        toast.error(`Not enough IPs available. Only ${updatedProxies.length} IPs available.`);
         setLoadingAll(false);
         return;
       }
@@ -295,10 +168,6 @@ export const Home: React.FC = () => {
       console.error('User ID not found');
       return;
     }
-
-    // Calculate if this usage will exhaust the daily limit
-    const newUsageToday = usageToday + proxies.length;
-    const willExhaustLimit = newUsageToday >= (user?.daily_limit || 0);
 
     try {
       const proxyIds = proxies.map(p => p.id);
@@ -324,38 +193,6 @@ export const Home: React.FC = () => {
         amount: proxies.length
       });
 
-      // Only start cooldown if this usage exhausts the daily limit
-      if (willExhaustLimit && user?.cooldown_minutes) {
-        if (!user.id) {
-          console.error('User ID not found');
-          return;
-        }
-        
-        const now = new Date();
-        const nextGeneration = new Date(now.getTime() + user.cooldown_minutes * 60 * 60 * 1000);
-        
-        const { error } = await supabase
-          .from('users')
-          .update({
-            last_generation_at: now.toISOString(),
-            next_generation_at: nextGeneration.toISOString()
-          })
-          .eq('id', user.id)
-          .single();
-
-        if (!error) {
-          // Update local user state
-          user.last_generation_at = now.toISOString();
-          user.next_generation_at = nextGeneration.toISOString();
-          checkCooldownStatus();
-          
-          toast.info(`দৈনিক লিমিট শেষ! ${user.cooldown_minutes} ঘন্টা পর আবার IP জেনারেট করতে পারবেন।`);
-        } else {
-          console.error('Error updating user cooldown:', error);
-        }
-      }
-
-      await fetchTodayUsage();
     } catch (error) {
       console.error('Error marking proxies as used:', error);
     }
@@ -450,7 +287,6 @@ export const Home: React.FC = () => {
       
       toast.success(`${proxies.length} IPs copied to clipboard`);
 
-      // Update generation time only if this will exhaust the daily limit
       await markProxiesAsUsed();
       setProxies([]);
     } catch (error) {
@@ -459,7 +295,7 @@ export const Home: React.FC = () => {
     }
   };
 
-  const remainingLimit = user ? user.daily_limit - usageToday : 0;
+  const presetAmounts = [200, 500, 1000];
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -467,40 +303,55 @@ export const Home: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">IP Proxy Generator</h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="text-sm text-blue-600 font-medium">Today's Usage</div>
-              <div className="text-2xl font-bold text-blue-900">{usageToday}</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-sm text-green-600 font-medium">Remaining Limit</div>
-              <div className="text-2xl font-bold text-green-900">{remainingLimit}</div>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="text-sm text-purple-600 font-medium">Daily Limit</div>
-              <div className="text-2xl font-bold text-purple-900">{user?.daily_limit}</div>
-            </div>
+          <div className="bg-green-50 rounded-lg p-4 mb-6">
+            <div className="text-sm text-green-600 font-medium">Status</div>
+            <div className="text-2xl font-bold text-green-900">Unlimited Access</div>
+            <div className="text-sm text-green-600">No daily limits or cooldowns</div>
           </div>
 
-          <div className="flex items-center space-x-4 mb-6">
+          <div className="flex flex-col space-y-4 mb-6">
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
                 Number of IPs
               </label>
-              <input
-                type="number"
-                id="amount"
-                min="1"
-                max={Math.min(remainingLimit, 100)}
-                value={amount}
-                onChange={handleAmountChange}
-                className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              
+              {/* Preset Buttons */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {presetAmounts.map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setPresetAmount(preset)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      amount === preset
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Input */}
+              <div className="flex items-center space-x-3">
+                <input
+                  type="number"
+                  id="amount"
+                  min="1"
+                  max="10000"
+                  value={amount}
+                  onChange={handleAmountChange}
+                  className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Custom amount"
+                />
+                <span className="text-sm text-gray-500">Max: 10,000</span>
+              </div>
             </div>
-            <div className="pt-6 flex space-x-3">
+            
+            <div className="flex space-x-3">
               <button
                 onClick={generateProxies}
-                disabled={loading || loadingAll || remainingLimit <= 0 || cooldownRemaining > 0}
+                disabled={loading || loadingAll}
                 className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (
@@ -513,64 +364,25 @@ export const Home: React.FC = () => {
                 )}
               </button>
 
-              {remainingLimit > 0 && (
-                <button
-                  onClick={handleGenerateAllClick}
-                  disabled={loading || loadingAll || remainingLimit <= 0 || cooldownRemaining > 0}
-                  className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                >
-                  {loadingAll ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Generating All...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      <span>Generate All ({remainingLimit})</span>
-                    </>
-                  )}
-                </button>
-              )}
+              <button
+                onClick={handleGenerateAllClick}
+                disabled={loading || loadingAll}
+                className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {loadingAll ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating All...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Generate All Available</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
-
-          {/* Cooldown Warning */}
-          {cooldownRemaining > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-md p-4 mb-6">
-              <div className="flex items-center">
-                <AlertTriangle className="h-5 w-5 text-orange-400 mr-2" />
-                <div>
-                  <p className="text-orange-700 text-sm font-medium">
-                    অপেক্ষা করুন! আপনি আরো <span className="font-bold">{formatCooldownTime(cooldownRemaining)}</span> পর IP জেনারেট করতে পারবেন
-                  </p>
-                  {nextGenerationTime && (
-                    <p className="text-orange-600 text-xs mt-1">
-                      পরবর্তী IP জেনারেশন: {nextGenerationTime.toLocaleString('bn-BD', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                      })}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {remainingLimit <= 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-              <div className="flex items-center">
-                <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-                <p className="text-red-700 text-sm">
-                  Your daily limit has been reached. Please try again tomorrow.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {proxies.length > 0 && (
@@ -632,25 +444,12 @@ export const Home: React.FC = () => {
               <div className="text-center">
                 <Zap className="w-12 h-12 text-green-500 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  সমস্ত IP জেনারেট করুন
+                  Generate All Available IPs
                 </h3>
                 
-                {availableIPCount !== null && availableIPCount < remainingLimit ? (
-                  <>
-                    <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-                      <div className="flex items-start">
-                        <AlertTriangle className="h-5 w-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
-                        <div className="text-red-700 text-sm text-left">
-                          <p className="font-semibold mb-1">পর্যাপ্ত IP নেই!</p>
-                          <p>বর্তমানে শুধুমাত্র <span className="font-bold">{availableIPCount}টি</span> IP পাওয়া যাচ্ছে।</p>
-                          <p className="mt-1">আপনি কি এই {availableIPCount}টি IP জেনারেট করতে চান?</p>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
+                {availableIPCount !== null && (
                   <p className="text-sm text-gray-500 mb-6">
-                    আপনি কি নিশ্চিত যে আপনি <span className="font-semibold text-green-600">{remainingLimit}টি</span> IP জেনারেট করতে চান?
+                    Are you sure you want to generate all <span className="font-semibold text-green-600">{availableIPCount}</span> available IPs?
                   </p>
                 )}
 
@@ -658,7 +457,7 @@ export const Home: React.FC = () => {
                   <div className="flex items-center">
                     <AlertTriangle className="h-4 w-4 text-yellow-400 mr-2 flex-shrink-0" />
                     <p className="text-yellow-700 text-sm text-left">
-                      <strong>সতর্কতা:</strong> এই অপারেশনটি আপনার আজকের বাকি থাকা সমস্ত IP লিমিট ব্যবহার করে ফেলবে।
+                      <strong>Warning:</strong> This will generate all available IPs from the database.
                     </p>
                   </div>
                 </div>
@@ -668,14 +467,14 @@ export const Home: React.FC = () => {
                     onClick={() => setShowGenerateAllModal(false)}
                     className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                   >
-                    বাতিল করুন
+                    Cancel
                   </button>
                   <button
                     onClick={handleGenerateAllConfirm}
                     className="px-4 py-2 border border-transparent rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center space-x-2"
                   >
                     <Zap className="w-4 h-4" />
-                    <span>জেনারেট করুন</span>
+                    <span>Generate All</span>
                   </button>
                 </div>
               </div>

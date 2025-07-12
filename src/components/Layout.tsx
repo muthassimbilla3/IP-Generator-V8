@@ -17,6 +17,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // For admin and manager users, only show admin/manager and status links
+  const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b">
@@ -27,28 +30,35 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 IP Generator
               </Link>
               <div className="flex items-center space-x-4">
-                <Link
-                  to="/"
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/') 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <Home size={16} />
-                  <span>Home</span>
-                </Link>
-                <Link
-                  to="/profile"
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/profile') 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <User size={16} />
-                  <span>Profile</span>
-                </Link>
+                {/* Only show Home and Profile for regular users */}
+                {!isAdminOrManager && (
+                  <>
+                    <Link
+                      to="/"
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive('/') 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Home size={16} />
+                      <span>Home</span>
+                    </Link>
+                    <Link
+                      to="/profile"
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive('/profile') 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <User size={16} />
+                      <span>Profile</span>
+                    </Link>
+                  </>
+                )}
+                
+                {/* Admin/Manager specific navigation */}
                 {(user.role === 'admin' || user.role === 'manager') && (
                   <>
                     {user.role === 'admin' && (
