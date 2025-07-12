@@ -17,15 +17,11 @@ export const Admin: React.FC = () => {
     username: '',
     accessKey: '',
     role: 'user' as 'admin' | 'manager' | 'user',
-    dailyLimit: 500,
-    cooldownMinutes: 0
   });
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     username: '',
     accessKey: '',
-    dailyLimit: 0,
-    cooldownMinutes: 0
   });
   const [totalProxies, setTotalProxies] = useState(0);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
@@ -261,8 +257,6 @@ export const Admin: React.FC = () => {
         username: newUser.username,
         access_key: newUser.accessKey,
         role: newUser.role,
-        daily_limit: newUser.dailyLimit,
-        cooldown_minutes: newUser.cooldownMinutes
       });
 
       if (error) throw error;
@@ -272,8 +266,6 @@ export const Admin: React.FC = () => {
         username: '',
         accessKey: '',
         role: 'user',
-        dailyLimit: 500,
-        cooldownMinutes: 0
       });
       fetchUsers();
     } catch (error) {
@@ -321,8 +313,6 @@ export const Admin: React.FC = () => {
     setEditForm({
       username: userData.username,
       accessKey: userData.access_key,
-      dailyLimit: userData.daily_limit,
-      cooldownMinutes: userData.cooldown_minutes || 0
     });
   };
 
@@ -331,8 +321,6 @@ export const Admin: React.FC = () => {
     setEditForm({
       username: '',
       accessKey: '',
-      dailyLimit: 0,
-      cooldownMinutes: 0
     });
   };
 
@@ -343,8 +331,6 @@ export const Admin: React.FC = () => {
         .update({
           username: editForm.username,
           access_key: editForm.accessKey,
-          daily_limit: editForm.dailyLimit,
-          cooldown_minutes: editForm.cooldownMinutes
         })
         .eq('id', userId);
 
@@ -527,7 +513,7 @@ export const Admin: React.FC = () => {
           {/* Create New User */}
           <form onSubmit={createUser} className="mb-6">
             <h3 className="text-md font-medium text-gray-800 mb-3">Create New User</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input
                 type="text"
                 placeholder="Username"
@@ -553,21 +539,6 @@ export const Admin: React.FC = () => {
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>
-              <input
-                type="number"
-                placeholder="Daily Limit"
-                value={newUser.dailyLimit}
-                onChange={(e) => setNewUser({...newUser, dailyLimit: parseInt(e.target.value)})}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              <input
-                type="number"
-                placeholder="Cooldown (ঘন্টা)"
-                value={newUser.cooldownMinutes || 0}
-                onChange={(e) => setNewUser({...newUser, cooldownMinutes: parseInt(e.target.value) || 0})}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
             <button
               type="submit"
@@ -590,12 +561,6 @@ export const Admin: React.FC = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Daily Limit
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cooldown
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -647,30 +612,6 @@ export const Admin: React.FC = () => {
                       }`}>
                         {userData.role === 'admin' ? 'Admin' : userData.role === 'manager' ? 'Manager' : 'User'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {editingUser === userData.id ? (
-                        <input
-                          type="number"
-                          value={editForm.dailyLimit}
-                          onChange={(e) => setEditForm({...editForm, dailyLimit: parseInt(e.target.value)})}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-20"
-                        />
-                      ) : (
-                        userData.daily_limit
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {editingUser === userData.id ? (
-                        <input
-                          type="number"
-                          value={editForm.cooldownMinutes || 0}
-                          onChange={(e) => setEditForm({...editForm, cooldownMinutes: parseInt(e.target.value) || 0})}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm w-20"
-                        />
-                      ) : (
-                        `${userData.cooldown_minutes || 0}ঘ`
-                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button

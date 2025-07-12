@@ -255,6 +255,30 @@ export const Status: React.FC = () => {
           </div>
         </div>
 
+        {/* System Status Card */}
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 mb-8 border border-green-200">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">🚀 Unlimited System Active</h2>
+            <p className="text-gray-700 mb-4">
+              All users now have unlimited access to IP generation with no daily limits or cooldowns.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="text-green-600 font-semibold">Daily Limits</div>
+                <div className="text-2xl font-bold text-green-800">Unlimited</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="text-blue-600 font-semibold">Cooldown Period</div>
+                <div className="text-2xl font-bold text-blue-800">None</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="text-purple-600 font-semibold">Max Per Request</div>
+                <div className="text-2xl font-bold text-purple-800">10,000</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* User Statistics Table - Only for Admin */}
         {(user?.role === 'admin' || user?.role === 'manager') && (
           <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -274,15 +298,6 @@ export const Status: React.FC = () => {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Daily Limit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cooldown
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Today's Usage
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       This Week
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -290,12 +305,6 @@ export const Status: React.FC = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last Used
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Next Generation
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -336,31 +345,6 @@ export const Status: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {stat.user.daily_limit}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          (stat.user.cooldown_minutes || 0) > 0
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {stat.user.cooldown_minutes || 0}ঘ
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <span className="mr-2">{stat.todayUsage}</span>
-                          <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full" 
-                              style={{ 
-                                width: `${Math.min(100, (stat.todayUsage / stat.user.daily_limit) * 100)}%` 
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {stat.thisWeekUsage}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -371,40 +355,6 @@ export const Status: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {stat.lastUsed ? new Date(stat.lastUsed).toLocaleString() : 'Never'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {stat.user.next_generation_at ? (
-                          <div>
-                            <div className="text-xs">
-                              {new Date(stat.user.next_generation_at) > new Date() ? (
-                                <span className="text-orange-600 font-medium">
-                                  {Math.ceil((new Date(stat.user.next_generation_at).getTime() - Date.now()) / (1000 * 60 * 60))}ঘ বাকি
-                                </span>
-                              ) : (
-                                <span className="text-green-600 font-medium">এখনই পারবে</span>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {new Date(stat.user.next_generation_at).toLocaleString('bn-BD', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-green-600 text-xs font-medium">এখনই পারবে</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center space-x-2">
-                          <CooldownManager
-                            user={stat.user}
-                            onUpdate={fetchUserStats}
-                            userRole={user?.role || 'user'}
-                          />
-                        </div>
                       </td>
                     </tr>
                   ))}
